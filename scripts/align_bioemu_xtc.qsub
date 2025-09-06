@@ -1,0 +1,13 @@
+#!/bin/bash
+#$ -N align_bioemu_xtc
+#$ -cwd
+#$ -l h_rt=01:00:00
+
+module load miniforge
+conda activate /data/scratch/ap24012/envs/pca-env
+
+python /data/home/ap24012/scripts/align_bioemu_from_xtc.py \
+  /data/home/ap24012/structure_refs/T4-Lysozyme/2lzma.pdb \
+  /data/scratch/ap24012/af2_evaluation/gromacs/T4-Lysozyme/BioEmu/topology.pdb \
+  /data/scratch/ap24012/af2_evaluation/gromacs/T4-Lysozyme/BioEmu/samples.xtc \
+  /data/scratch/ap24012/af2_evaluation/gromacs/T4-Lysozyme/BioEmu/bioemu_backbone_2lzma.npy

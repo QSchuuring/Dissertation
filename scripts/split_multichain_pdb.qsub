@@ -1,0 +1,69 @@
+#!/bin/bash
+#$ -cwd
+#$ -j y
+#$ -pe smp 1
+#$ -l h_rt=0:15:00
+#$ -l h_vmem=2G
+#$ -N split_multichain_pdb
+
+# Load environment and activate conda
+module load nano
+module load miniforge
+source /share/apps/rocky9/general/apps/miniforge/24.7.1/etc/profile.d/conda.sh
+conda activate /data/scratch/$USER/envs/afcluster-env
+
+# Directory containing original PDBs
+PDB_DIR="/data/home/ap24012/structure_refs/T4-Lysozyme"
+
+# Embedded Python script to split multichain PDBs
+python3 - "$PDB_DIR" << 'EOF'
+import os
+import sys
+from Bio.PDB import PDBParser, PDBIO, Structure, Model, Chain
+
+pdb_dir = sys.argv[1]
+
+parser = PDBParser(QUIET=True)
+io = PDBIO()
+
+for fname in os.listdir(pdb_dir):
+    if not fname.endswith('.pdb'):
+        continue
+    pdb_path = os.path.join(pdb_dir, fname)
+    pdb_id = os.path.splitext(fname)[0]
+
+    structure = parser.get_structure(pdb_id, pdb_path)
+    model = structure[0]  # First model only
+
+    chains = list(model.get_chains())
+
+    for chain in chains:
+        # Create a new empty Structure and Model
+        new_struct = Structure.Structure(f"{pdb_id}_{chain.id}")
+        new_model = Model.Model(0)
+
+        # Create new Chain with ID 'A'
+        new_chain = Chain.Chain('A')
+
+        # Copy residues from original chain to new chain
+        for residue in chain:
+            new_chain.add(residue.copy())
+
+        # Add chain to model, model to structure
+        new_model.add(new_chain)
+        new_struct.add(new_model)
+
+        # Filename: original pdb id + lowercase chain id + .pdb (e.g. 137La.pdb)
+        out_fname = f"{pdb_id}{chain.id.lower()}.pdb"
+        out_path = os.path.join(pdb_dir, out_fname)
+
+        io.set_structure(new_struct)
+        io.save(out_path)
+        print(f"[+] Saved split chain PDB: {out_path}")
+
+    # Delete original multichain PDB after splitting all chains
+    os.remove(pdb_path)
+    print(f"[-] Removed original multi-chain PDB {pdb_path}")
+EOF
+
+echo "[✓] Chain splitting complete."
